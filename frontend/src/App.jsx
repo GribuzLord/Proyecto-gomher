@@ -74,32 +74,34 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
       {/* Navegación (Header) */}
-      <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+      <nav className="bg-white border-b-2 border-gray-900 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
             
             {/* Logo */}
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <div className="bg-blue-600 text-white p-2 rounded-xl shadow-lg shadow-blue-600/30">
+                <div className="bg-blue-600 text-white p-2 border-2 border-gray-900 shadow-[4px_4px_0px_rgba(17,24,39,1)]">
                   <Wrench size={22} />
                 </div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-800 uppercase">
+                <h1 className="text-2xl font-bold tracking-tight text-gray-800 uppercase ml-2">
                   Autopartes <span className="font-black text-blue-600 tracking-tighter">GOMHER</span>
                 </h1>
               </div>
             </div>
             
-            {/* Buscador de Texto (Visible en móvil también) */}
+            {/* Buscador de Texto */}
             <div className="flex items-center relative w-full md:w-96 group">
+              <label htmlFor="buscador-global" className="sr-only">Buscar piezas en el catálogo</label>
               <input 
+                id="buscador-global"
                 type="text" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar faro, facia, cofre..." 
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-600/50 focus:border-blue-600 focus:bg-white transition-all shadow-inner"
+                className="w-full bg-white border-2 border-gray-300 rounded-none py-2.5 pl-12 pr-4 text-sm font-bold text-gray-900 placeholder-gray-500 focus:outline-none focus:border-gray-900 focus:ring-0 transition-colors"
               />
-              <Search className="absolute left-4 text-gray-400 group-focus-within:text-blue-600 transition-colors" size={18} />
+              <Search className="absolute left-4 text-gray-400 group-focus-within:text-gray-900 transition-colors" size={18} />
             </div>
 
           </div>
@@ -227,55 +229,58 @@ function App() {
             <p className="text-gray-500">Intenta buscar con otros términos o limpia los filtros.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredPiezas.map((item) => (
-              <div key={item.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:border-blue-600/30 transition-all duration-300 overflow-hidden flex flex-col group">
+              <div key={item.id} className="bg-white border-2 border-gray-200 hover:border-gray-900 transition-colors duration-200 flex flex-col group rounded-none">
                 
                 {/* Imagen */}
-                <div className="h-48 bg-gray-100 relative overflow-hidden">
+                <div className="h-56 bg-gray-50 relative overflow-hidden border-b-2 border-gray-100 group-hover:border-gray-900 transition-colors">
                   {item.foto_url ? (
                     <img src={item.foto_url} alt={item.piezas?.descripcion_corta} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
-                      <ShoppingCart size={40} className="mb-2 opacity-50" />
-                      <span className="text-sm">Sin foto</span>
+                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-300">
+                      <Car size={48} className="mb-2 opacity-20" />
+                      <span className="text-sm font-bold uppercase tracking-widest text-gray-400">Sin foto</span>
                     </div>
                   )}
                   {/* Etiqueta de Disponible */}
-                  <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-gray-900 text-[10px] uppercase font-bold px-2 py-1 rounded shadow-sm border border-gray-200">
-                    Disponible
+                  <div className="absolute top-3 right-3 bg-white text-gray-900 text-[10px] uppercase font-black px-2 py-1 border-2 border-gray-900">
+                    DISPONIBLE
                   </div>
                 </div>
 
                 {/* Detalles de la pieza */}
                 <div className="p-5 flex-1 flex flex-col">
-                  <div className="flex justify-between items-center mb-1">
-                    <div className="text-xs text-blue-600 font-semibold uppercase tracking-wider">
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="text-xs text-blue-600 font-black uppercase tracking-widest">
                       {item.piezas?.categoria}
                     </div>
                     {/* Condición discreta */}
-                    <div className="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded border border-gray-100 uppercase tracking-wider">
+                    <div className="text-[10px] text-gray-500 bg-gray-100 px-2 py-1 font-bold uppercase tracking-wider">
                       {item.condicion}
                     </div>
                   </div>
                   
-                  <h3 className="font-bold text-lg leading-tight mb-2 text-gray-900">
+                  <h3 className="font-black text-lg leading-tight mb-2 text-gray-900 uppercase">
                     {item.piezas?.descripcion_corta}
                   </h3>
                   
-                  <p className="text-sm text-gray-500 mb-4 line-clamp-2 flex-1">
+                  <p className="text-sm text-gray-600 mb-6 line-clamp-2 flex-1 font-medium">
                     {item.detalle_observacion}
                   </p>
 
-                  <div className="border-t border-gray-100 pt-4 mt-auto flex items-center justify-between">
-                    <div>
-                      <span className="text-xs text-gray-400 block mb-1">Precio sugerido</span>
-                      <span className="text-2xl font-bold text-gray-900">
+                  <div className="mt-auto">
+                    <div className="mb-4">
+                      <span className="text-xs text-gray-500 block mb-1 font-bold uppercase tracking-wider">Precio de Venta</span>
+                      <span className="text-3xl font-black text-gray-900">
                         ${item.precio_venta_sugerido}
                       </span>
                     </div>
-                    <button className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-md hover:shadow-lg hover:shadow-blue-600/30 transition-all">
-                      <ShoppingCart size={20} />
+                    <button 
+                      className="w-full bg-blue-600 hover:bg-gray-900 text-white border-2 border-transparent hover:border-gray-900 py-3 px-4 font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition-all"
+                      aria-label={`Comprar ${item.piezas?.descripcion_corta}`}
+                    >
+                      <ShoppingCart size={18} /> Lo quiero
                     </button>
                   </div>
                 </div>
