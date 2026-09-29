@@ -1,5 +1,66 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Wrench, ShoppingCart, Car, FilterX, Filter } from 'lucide-react';
+import { Search, Wrench, ShoppingCart, Car, FilterX, Filter, ChevronDown, Check } from 'lucide-react';
+
+// --- COMPONENTE CUSTOM SELECT (Dropdown Industrial) ---
+function CustomSelect({ id, label, options, value, onChange, placeholder, disabled }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = React.useRef(null);
+
+  React.useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-2 relative" ref={dropdownRef}>
+      <label htmlFor={id} className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+        {label}
+      </label>
+      
+      <button
+        id={id}
+        type="button"
+        disabled={disabled}
+        onClick={() => setIsOpen(!isOpen)}
+        className={`bg-white border-2 flex items-center justify-between px-4 py-3 text-sm font-bold w-full transition-colors
+          ${disabled ? 'opacity-50 cursor-not-allowed border-gray-200 text-gray-400' : 'cursor-pointer hover:border-gray-900 focus:outline-none focus:border-gray-900'}
+          ${isOpen ? 'border-gray-900 shadow-[4px_4px_0px_rgba(17,24,39,1)]' : 'border-gray-300 text-gray-900'}
+        `}
+      >
+        <span className="truncate">{value || placeholder}</span>
+        <ChevronDown size={16} className={`transition-transform duration-200 text-gray-900 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && !disabled && (
+        <ul className="absolute z-50 w-full top-full mt-2 bg-white border-2 border-gray-900 shadow-[4px_4px_0px_rgba(17,24,39,1)] max-h-60 overflow-y-auto outline-none">
+          <li
+            onClick={() => { onChange(''); setIsOpen(false); }}
+            className={`px-4 py-3 text-sm cursor-pointer hover:bg-gray-100 flex items-center justify-between ${!value ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-700 font-medium'}`}
+          >
+            {placeholder}
+            {!value && <Check size={16} />}
+          </li>
+          
+          {options.map((option) => (
+            <li
+              key={option}
+              onClick={() => { onChange(option); setIsOpen(false); }}
+              className={`px-4 py-3 text-sm cursor-pointer hover:bg-gray-100 flex items-center justify-between ${value === option ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-900 font-medium'}`}
+            >
+              {option}
+              {value === option && <Check size={16} />}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 function App() {
   const [piezas, setPiezas] = useState([]);
@@ -163,56 +224,38 @@ function App() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
             {/* Filtro Marca */}
-            <div className="flex flex-col gap-2">
-              <label htmlFor="filtro-marca" className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                1. Marca del Vehículo
-              </label>
-              <select 
-                id="filtro-marca"
-                value={selectedMarca}
-                onChange={(e) => {
-                  setSelectedMarca(e.target.value);
-                  setSelectedSubmarca(''); // Reiniciar submarca cuando cambia la marca
-                }}
-                className="bg-gray-50 border border-gray-200 hover:border-blue-300 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none w-full appearance-none cursor-pointer transition-colors shadow-inner"
-              >
-                <option value="">Todas las Marcas</option>
-                {marcas.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
+            <CustomSelect 
+              id="filtro-marca"
+              label="1. Marca del Vehículo"
+              options={marcas}
+              value={selectedMarca}
+              onChange={(val) => {
+                setSelectedMarca(val);
+                setSelectedSubmarca('');
+              }}
+              placeholder="Todas las Marcas"
+            />
             
             {/* Filtro Submarca (Modelo) */}
-            <div className="flex flex-col gap-2">
-              <label htmlFor="filtro-modelo" className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                2. Modelo
-              </label>
-              <select 
-                id="filtro-modelo"
-                value={selectedSubmarca}
-                onChange={(e) => setSelectedSubmarca(e.target.value)}
-                disabled={!selectedMarca}
-                className="bg-gray-50 border border-gray-200 hover:border-blue-300 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none w-full appearance-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 cursor-pointer transition-colors shadow-inner"
-              >
-                <option value="">{selectedMarca ? 'Todos los Modelos' : 'Selecciona marca primero'}</option>
-                {submarcas.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
+            <CustomSelect 
+              id="filtro-modelo"
+              label="2. Modelo"
+              options={submarcas}
+              value={selectedSubmarca}
+              onChange={setSelectedSubmarca}
+              placeholder={selectedMarca ? 'Todos los Modelos' : 'Selecciona marca primero'}
+              disabled={!selectedMarca}
+            />
 
             {/* Filtro Categoría de Pieza */}
-            <div className="flex flex-col gap-2">
-              <label htmlFor="filtro-categoria" className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                3. Tipo de Pieza
-              </label>
-              <select 
-                id="filtro-categoria"
-                value={selectedCategoria}
-                onChange={(e) => setSelectedCategoria(e.target.value)}
-                className="bg-gray-50 border border-gray-200 hover:border-blue-300 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none w-full appearance-none cursor-pointer transition-colors shadow-inner"
-              >
-                <option value="">Cualquier Pieza</option>
-                {categorias.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
+            <CustomSelect 
+              id="filtro-categoria"
+              label="3. Tipo de Pieza"
+              options={categorias}
+              value={selectedCategoria}
+              onChange={setSelectedCategoria}
+              placeholder="Cualquier Pieza"
+            />
             
           </div>
         </section>
