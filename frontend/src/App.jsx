@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Wrench, ShoppingCart, Car, FilterX, Filter, ChevronDown, Check } from 'lucide-react';
+import { Search, Wrench, ShoppingCart, Car, FilterX, Filter, ChevronDown, Check, AlertCircle, RefreshCw } from 'lucide-react';
 
 // --- COMPONENTE CUSTOM SELECT (Dropdown Industrial) ---
 function CustomSelect({ id, label, options, value, onChange, placeholder, disabled }) {
@@ -66,6 +66,7 @@ function App() {
   const [piezas, setPiezas] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Estados para los filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -73,32 +74,50 @@ function App() {
   const [selectedSubmarca, setSelectedSubmarca] = useState('');
   const [selectedCategoria, setSelectedCategoria] = useState('');
 
-  useEffect(() => {
-    // Cargar piezas y vehículos al mismo tiempo
+  const fetchData = () => {
+    setLoading(true);
+    setError(null);
+
+    const safeFetch = async (url) => {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `Error HTTP ${res.status}`);
+      }
+      return data;
+    };
+
     Promise.all([
-      fetch('http://localhost:3000/api/catalogo/piezas').then(res => res.json()),
-      fetch('http://localhost:3000/api/catalogo/vehiculos').then(res => res.json())
+      safeFetch('http://localhost:3000/api/catalogo/piezas'),
+      safeFetch('http://localhost:3000/api/catalogo/vehiculos')
     ])
     .then(([piezasData, vehiculosData]) => {
-      setPiezas(piezasData);
-      setVehiculos(vehiculosData);
+      setPiezas(Array.isArray(piezasData) ? piezasData : []);
+      setVehiculos(Array.isArray(vehiculosData) ? vehiculosData : []);
       setLoading(false);
     })
     .catch(err => {
       console.error("Error cargando datos:", err);
+      setError(err.message || 'Error de conexión con el backend o la base de datos');
+      setPiezas([]);
+      setVehiculos([]);
       setLoading(false);
     });
+  };
+
+  useEffect(() => {
+    fetchData();
   }, []);
 
   // --- LÓGICA DE FILTROS EN CASCADA ---
   
   // 1. Extraer listas únicas para llenar los 'selects'
-  const marcas = [...new Set(vehiculos.map(v => v.marca))];
-  const submarcas = [...new Set(vehiculos.filter(v => v.marca === selectedMarca).map(v => v.submarca))];
-  const categorias = [...new Set(piezas.map(p => p.piezas?.categoria).filter(Boolean))];
+  const marcas = Array.isArray(vehiculos) ? [...new Set(vehiculos.map(v => v.marca))] : [];
+  const submarcas = Array.isArray(vehiculos) ? [...new Set(vehiculos.filter(v => v.marca === selectedMarca).map(v => v.submarca))] : [];
+  const categorias = Array.isArray(piezas) ? [...new Set(piezas.map(p => p.piezas?.categoria).filter(Boolean))] : [];
 
   // 2. Filtrar las piezas a mostrar basado en los estados seleccionados
-  const filteredPiezas = piezas.filter(item => {
+  const filteredPiezas = Array.isArray(piezas) ? piezas.filter(item => {
     // Filtro por Búsqueda de texto
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -130,7 +149,7 @@ function App() {
     }
 
     return true;
-  });
+  }) : [];
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
@@ -264,6 +283,18 @@ function App() {
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+          </div>
+        ) : error ? (
+          <div className="bg-red-50 border-2 border-red-500 p-8 text-center flex flex-col items-center">
+            <AlertCircle size={48} className="text-red-500 mb-3" />
+            <h3 className="text-xl font-bold text-red-900 mb-1">No se pudieron cargar los datos</h3>
+            <p className="text-sm text-red-700 max-w-lg mb-4">{error}</p>
+            <button
+              onClick={fetchData}
+              className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 text-sm uppercase tracking-wider transition-colors"
+            >
+              <RefreshCw size={16} /> Reintentar
+            </button>
           </div>
         ) : filteredPiezas.length === 0 ? (
           <div className="bg-white p-12 rounded-3xl border border-gray-100 text-center flex flex-col items-center">

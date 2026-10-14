@@ -8,7 +8,8 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Configuración de Supabase
-const supabaseUrl = process.env.SUPABASE_URL;
+const rawUrl = process.env.SUPABASE_URL || '';
+const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
