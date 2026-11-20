@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Search, ShoppingCart, Car, FilterX, Filter, ChevronDown, Check, AlertCircle, RefreshCw } from 'lucide-react';
 import logoGomher from './assets/logo-gomher.svg';
 
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '');
+
 // --- COMPONENTE CUSTOM SELECT (Dropdown Industrial) ---
 function CustomSelect({ id, label, options, value, onChange, placeholder, disabled }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -73,6 +75,7 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMarca, setSelectedMarca] = useState('');
   const [selectedSubmarca, setSelectedSubmarca] = useState('');
+  const [selectedAnio, setSelectedAnio] = useState('');
   const [selectedCategoria, setSelectedCategoria] = useState('');
 
   const fetchData = () => {
@@ -89,8 +92,8 @@ function App() {
     };
 
     Promise.all([
-      safeFetch('http://localhost:3000/api/catalogo/piezas'),
-      safeFetch('http://localhost:3000/api/catalogo/vehiculos')
+      safeFetch(`${API_URL}/api/catalogo/piezas`),
+      safeFetch(`${API_URL}/api/catalogo/vehiculos`)
     ])
     .then(([piezasData, vehiculosData]) => {
       setPiezas(Array.isArray(piezasData) ? piezasData : []);
@@ -115,6 +118,21 @@ function App() {
   // 1. Extraer listas únicas para llenar los 'selects'
   const marcas = Array.isArray(vehiculos) ? [...new Set(vehiculos.map(v => v.marca))] : [];
   const submarcas = Array.isArray(vehiculos) ? [...new Set(vehiculos.filter(v => v.marca === selectedMarca).map(v => v.submarca))] : [];
+  const anios = Array.isArray(vehiculos) && selectedMarca && selectedSubmarca
+    ? [...new Set(
+        vehiculos
+          .filter(v => v.marca === selectedMarca && v.submarca === selectedSubmarca)
+          .flatMap(v => {
+            const years = [];
+            for (let y = v.anio_inicio; y <= v.anio_fin; y++) {
+              years.push(y);
+            }
+            return years;
+          })
+      )]
+        .sort((a, b) => b - a)
+        .map(String)
+    : [];
   const categorias = Array.isArray(piezas) ? [...new Set(piezas.map(p => p.piezas?.categoria).filter(Boolean))] : [];
 
   // 2. Filtrar las piezas a mostrar basado en los estados seleccionados
@@ -133,8 +151,8 @@ function App() {
       return false;
     }
 
-    // Filtro por Marca y Submarca (revisando compatibilidades)
-    if (selectedMarca || selectedSubmarca) {
+    // Filtro por Marca, Submarca y Año (revisando compatibilidades)
+    if (selectedMarca || selectedSubmarca || selectedAnio) {
       const compatibilidades = item.piezas?.compatibilidades || [];
       const esCompatible = compatibilidades.some(comp => {
         const v = comp.vehiculos;
@@ -142,8 +160,10 @@ function App() {
         
         const coincideMarca = selectedMarca ? v.marca === selectedMarca : true;
         const coincideSubmarca = selectedSubmarca ? v.submarca === selectedSubmarca : true;
+        const anioNum = Number(selectedAnio);
+        const coincideAnio = selectedAnio ? (anioNum >= v.anio_inicio && anioNum <= v.anio_fin) : true;
         
-        return coincideMarca && coincideSubmarca;
+        return coincideMarca && coincideSubmarca && coincideAnio;
       });
       
       if (!esCompatible) return false;
@@ -227,11 +247,12 @@ function App() {
             </h3>
             
             {/* Botón para limpiar filtros */}
-            {(selectedMarca || selectedCategoria || searchTerm) && (
+            {(selectedMarca || selectedSubmarca || selectedAnio || selectedCategoria || searchTerm) && (
               <button 
                 onClick={() => {
                   setSelectedMarca('');
                   setSelectedSubmarca('');
+                  setSelectedAnio('');
                   setSelectedCategoria('');
                   setSearchTerm('');
                 }}
@@ -243,7 +264,7 @@ function App() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             
             {/* Filtro Marca */}
             <CustomSelect 
@@ -254,6 +275,7 @@ function App() {
               onChange={(val) => {
                 setSelectedMarca(val);
                 setSelectedSubmarca('');
+                setSelectedAnio('');
               }}
               placeholder="Todas las Marcas"
             />
@@ -264,15 +286,29 @@ function App() {
               label="2. Modelo"
               options={submarcas}
               value={selectedSubmarca}
-              onChange={setSelectedSubmarca}
+              onChange={(val) => {
+                setSelectedSubmarca(val);
+                setSelectedAnio('');
+              }}
               placeholder={selectedMarca ? 'Todos los Modelos' : 'Selecciona marca primero'}
               disabled={!selectedMarca}
+            />
+
+            {/* Filtro Año */}
+            <CustomSelect 
+              id="filtro-anio"
+              label="3. Año"
+              options={anios}
+              value={selectedAnio}
+              onChange={setSelectedAnio}
+              placeholder={selectedSubmarca ? 'Todos los Años' : 'Selecciona modelo primero'}
+              disabled={!selectedSubmarca}
             />
 
             {/* Filtro Categoría de Pieza */}
             <CustomSelect 
               id="filtro-categoria"
-              label="3. Tipo de Pieza"
+              label="4. Tipo de Pieza"
               options={categorias}
               value={selectedCategoria}
               onChange={setSelectedCategoria}
