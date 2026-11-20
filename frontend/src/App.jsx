@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Wrench, ShoppingCart, Car, FilterX, Filter, ChevronDown, Check, AlertCircle, RefreshCw } from 'lucide-react';
+import { Search, ShoppingCart, Car, FilterX, Filter, ChevronDown, Check, AlertCircle, RefreshCw } from 'lucide-react';
+import logoGomher from './assets/logo-gomher.svg';
 
 // --- COMPONENTE CUSTOM SELECT (Dropdown Industrial) ---
 function CustomSelect({ id, label, options, value, onChange, placeholder, disabled }) {
@@ -160,11 +161,13 @@ function App() {
             
             {/* Logo */}
             <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <div className="bg-blue-600 text-white p-2 border-2 border-gray-900 shadow-[4px_4px_0px_rgba(17,24,39,1)]">
-                  <Wrench size={22} />
-                </div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-800 uppercase ml-2">
+              <div className="flex items-center gap-3">
+                <img
+                  src={logoGomher}
+                  alt="Logo Autopartes Gomher"
+                  className="h-10 w-auto object-contain"
+                />
+                <h1 className="text-2xl font-bold tracking-tight text-gray-800 uppercase">
                   Autopartes <span className="font-black text-blue-600 tracking-tighter">GOMHER</span>
                 </h1>
               </div>
