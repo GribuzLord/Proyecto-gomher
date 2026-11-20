@@ -1,8 +1,268 @@
 import React, { useEffect, useState } from 'react';
-import { Search, ShoppingCart, Car, FilterX, Filter, ChevronDown, Check, AlertCircle, RefreshCw } from 'lucide-react';
+import {
+  Search, Car, FilterX, Filter, ChevronDown, Check,
+  AlertCircle, RefreshCw, X, ArrowLeft, MessageCircle, ZoomIn, ZoomOut
+} from 'lucide-react';
 import logoGomher from './assets/logo-gomher.svg';
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '');
+const WHATSAPP_NUMBER = (import.meta.env.VITE_WHATSAPP_NUMBER || '').replace(/\D/g, '');
+
+function buildWhatsAppUrl(item) {
+  const desc = item.piezas?.descripcion_corta || 'esta pieza';
+  const primerVehiculo = item.piezas?.compatibilidades?.[0]?.vehiculos;
+  const vehiculoTexto = primerVehiculo
+    ? ` para ${primerVehiculo.marca} ${primerVehiculo.submarca} (${primerVehiculo.anio_inicio}-${primerVehiculo.anio_fin})`
+    : '';
+  const skuTexto = item.sku_interno ? ` (SKU: ${item.sku_interno})` : '';
+  const precioTexto = item.precio_venta_sugerido ? ` por $${item.precio_venta_sugerido}` : '';
+  const mensaje = `Hola, vi en su catálogo: ${desc}${vehiculoTexto}${skuTexto}${precioTexto}. ¿Sigue disponible?`;
+  const baseUrl = WHATSAPP_NUMBER ? `https://wa.me/${WHATSAPP_NUMBER}` : 'https://wa.me/';
+  return `${baseUrl}?text=${encodeURIComponent(mensaje)}`;
+}
+
+// --- COMPONENTE MODAL / PANTALLA COMPLETA DE DETALLE ---
+function PiezaDetalleModal({ item, onClose }) {
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+
+  const handleClose = React.useCallback(() => {
+    setIsVisible(false);
+    setTimeout(() => {
+      onClose();
+    }, 200);
+  }, [onClose]);
+
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const rafId = requestAnimationFrame(() => {
+      setIsVisible(true);
+    });
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleClose]);
+
+  const pieza = item.piezas || {};
+  const compatibilidades = pieza.compatibilidades || [];
+
+  const specs = [
+    { label: 'Categoría', value: pieza.categoria },
+    { label: 'Lado', value: pieza.lado },
+    { label: 'Posición', value: pieza.posicion },
+    { label: 'Tecnología', value: pieza.tipo_tecnologia },
+    { label: 'Acabado / Color', value: pieza.acabado_color },
+    { label: 'Equipamiento', value: pieza.variante_equipamiento },
+    { label: 'Tipo de repuesto', value: pieza.tipo_repuesto },
+  ].filter((spec) => spec.value && spec.value !== 'N/A');
+
+  return (
+    <div
+      className={`fixed inset-0 z-50 md:p-6 flex items-center justify-center transition-colors duration-200 ${
+        isVisible ? 'bg-gray-900/75 md:backdrop-blur-sm' : 'bg-gray-900/0'
+      }`}
+      onClick={handleClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="detalle-pieza-titulo"
+    >
+      <div
+        className={`w-full h-full md:h-auto md:max-h-[90vh] md:max-w-5xl bg-white md:border-2 md:border-gray-900 md:shadow-[8px_8px_0px_rgba(17,24,39,1)] flex flex-col overflow-hidden transition-all duration-200 ease-out ${
+          isVisible
+            ? 'opacity-100 translate-y-0 md:scale-100'
+            : 'opacity-0 translate-y-6 md:translate-y-0 md:scale-95'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Barra superior fija */}
+        <div className="flex items-center justify-between px-4 md:px-6 py-3.5 border-b-2 border-gray-900 bg-white shrink-0">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-wider text-gray-800 hover:text-blue-600 transition-colors"
+          >
+            <ArrowLeft size={18} />
+            <span className="md:hidden">Volver al catálogo</span>
+            <span className="hidden md:inline">Detalle de pieza</span>
+          </button>
+
+          <div className="flex items-center gap-3">
+            {item.sku_interno && (
+              <span className="hidden sm:inline-block text-xs font-bold uppercase tracking-wider bg-gray-100 text-gray-700 px-2.5 py-1 border border-gray-300">
+                SKU: {item.sku_interno}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleClose}
+              aria-label="Cerrar detalle"
+              className="p-1.5 border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Cuerpo responsivo: 1 columna scroll en móvil, 2 columnas en escritorio */}
+        <div className="flex-1 overflow-y-auto md:overflow-hidden md:grid md:grid-cols-2">
+          {/* Columna Imagen */}
+          <div className="bg-gray-50 border-b-2 md:border-b-0 md:border-r-2 border-gray-200 relative flex items-center justify-center min-h-[280px] sm:min-h-[340px] md:min-h-[440px] overflow-hidden">
+            {item.foto_url ? (
+              <>
+                <img
+                  src={item.foto_url}
+                  alt={pieza.descripcion_corta}
+                  onClick={() => setIsZoomed(!isZoomed)}
+                  className={`w-full h-full max-h-[420px] md:max-h-[540px] object-contain p-4 transition-transform duration-300 cursor-zoom-in ${
+                    isZoomed ? 'scale-150 cursor-zoom-out' : 'scale-100'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsZoomed(!isZoomed)}
+                  aria-label={isZoomed ? 'Alejar imagen' : 'Acercar imagen'}
+                  className="absolute bottom-3 right-3 bg-white/95 hover:bg-gray-900 hover:text-white text-gray-900 border-2 border-gray-900 px-3 py-1.5 text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5 transition-colors"
+                >
+                  {isZoomed ? <ZoomOut size={15} /> : <ZoomIn size={15} />}
+                  {isZoomed ? 'Alejar' : 'Zoom'}
+                </button>
+              </>
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center text-gray-300 py-16">
+                <Car size={64} className="mb-3 opacity-25" />
+                <span className="text-sm font-bold uppercase tracking-widest text-gray-400">Sin foto disponible</span>
+              </div>
+            )}
+
+            <div className="absolute top-3 left-3 bg-white text-gray-900 text-[11px] uppercase font-black px-2.5 py-1 border-2 border-gray-900">
+              DISPONIBLE
+            </div>
+          </div>
+
+          {/* Columna Información extendida */}
+          <div className="p-5 md:p-6 md:overflow-y-auto flex flex-col gap-5">
+            <div>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                {pieza.categoria && (
+                  <span className="text-xs text-blue-600 font-black uppercase tracking-widest">
+                    {pieza.categoria}
+                  </span>
+                )}
+                {item.condicion && (
+                  <span className="text-[11px] text-gray-700 bg-gray-100 px-2.5 py-0.5 font-bold uppercase tracking-wider border border-gray-200">
+                    {item.condicion}
+                  </span>
+                )}
+                {item.sku_interno && (
+                  <span className="sm:hidden text-[11px] font-bold uppercase tracking-wider bg-gray-100 text-gray-700 px-2 py-0.5 border border-gray-200">
+                    SKU: {item.sku_interno}
+                  </span>
+                )}
+              </div>
+
+              <h2 id="detalle-pieza-titulo" className="text-2xl font-black text-gray-900 uppercase leading-tight">
+                {pieza.descripcion_corta}
+              </h2>
+            </div>
+
+            {item.detalle_observacion && (
+              <div className="bg-blue-50/60 border-l-4 border-blue-600 p-3.5">
+                <span className="block text-[11px] font-black uppercase tracking-wider text-blue-800 mb-1">
+                  Estado y observaciones
+                </span>
+                <p className="text-sm text-gray-800 font-medium leading-relaxed">
+                  {item.detalle_observacion}
+                </p>
+              </div>
+            )}
+
+            {specs.length > 0 && (
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-gray-500 mb-2.5">
+                  Especificaciones técnicas
+                </h3>
+                <dl className="grid grid-cols-2 gap-2.5">
+                  {specs.map((spec) => (
+                    <div key={spec.label} className="bg-gray-50 border border-gray-200 p-2.5">
+                      <dt className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                        {spec.label}
+                      </dt>
+                      <dd className="text-sm font-bold text-gray-900 mt-0.5">
+                        {spec.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
+
+            {compatibilidades.length > 0 && (
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-gray-500 mb-2.5">
+                  Vehículos compatibles
+                </h3>
+                <ul className="space-y-2">
+                  {compatibilidades.map((comp) => {
+                    const v = comp.vehiculos;
+                    if (!v) return null;
+                    return (
+                      <li key={comp.id} className="border border-gray-200 bg-white p-3 flex flex-col gap-0.5">
+                        <span className="text-sm font-black text-gray-900 uppercase">
+                          {v.marca} {v.submarca} ({v.anio_inicio} - {v.anio_fin})
+                        </span>
+                        {v.generacion && (
+                          <span className="text-xs font-semibold text-gray-500">
+                            {v.generacion}
+                          </span>
+                        )}
+                        {comp.observacion_compatibilidad && (
+                          <span className="text-xs text-blue-700 font-medium mt-0.5">
+                            {comp.observacion_compatibilidad}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Barra inferior fija con precio y botón WhatsApp */}
+        <div className="border-t-2 border-gray-900 bg-white px-4 md:px-6 py-4 flex items-center justify-between gap-4 shrink-0">
+          <div>
+            <span className="text-[11px] text-gray-500 block font-bold uppercase tracking-wider">
+              Precio de Venta
+            </span>
+            <span className="text-2xl md:text-3xl font-black text-gray-900">
+              ${item.precio_venta_sugerido}
+            </span>
+          </div>
+
+          <a
+            href={buildWhatsAppUrl(item)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-blue-600 hover:bg-gray-900 text-white border-2 border-transparent hover:border-gray-900 py-3 px-4 md:px-6 font-black uppercase tracking-wider text-xs md:text-sm inline-flex items-center justify-center gap-2 transition-all text-center"
+          >
+            <MessageCircle size={18} className="shrink-0" /> Contactar con el vendedor
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // --- COMPONENTE CUSTOM SELECT (Dropdown Industrial) ---
 function CustomSelect({ id, label, options, value, onChange, placeholder, disabled }) {
@@ -70,6 +330,7 @@ function App() {
   const [vehiculos, setVehiculos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null);
 
   // Estados para los filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -344,7 +605,11 @@ function App() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredPiezas.map((item) => (
-              <div key={item.id} className="bg-white border-2 border-gray-200 hover:border-gray-900 transition-colors duration-200 flex flex-col group rounded-none">
+              <div
+                key={item.id}
+                onClick={() => setSelectedItem(item)}
+                className="bg-white border-2 border-gray-200 hover:border-gray-900 transition-colors duration-200 flex flex-col group rounded-none cursor-pointer"
+              >
                 
                 {/* Imagen */}
                 <div className="h-56 bg-gray-50 relative overflow-hidden border-b-2 border-gray-100 group-hover:border-gray-900 transition-colors">
@@ -374,7 +639,7 @@ function App() {
                     </div>
                   </div>
                   
-                  <h3 className="font-black text-lg leading-tight mb-2 text-gray-900 uppercase">
+                  <h3 className="font-black text-lg leading-tight mb-2 text-gray-900 uppercase group-hover:text-blue-600 transition-colors">
                     {item.piezas?.descripcion_corta}
                   </h3>
                   
@@ -383,18 +648,27 @@ function App() {
                   </p>
 
                   <div className="mt-auto">
-                    <div className="mb-4">
-                      <span className="text-xs text-gray-500 block mb-1 font-bold uppercase tracking-wider">Precio de Venta</span>
-                      <span className="text-3xl font-black text-gray-900">
-                        ${item.precio_venta_sugerido}
+                    <div className="mb-4 flex items-end justify-between gap-2">
+                      <div>
+                        <span className="text-xs text-gray-500 block mb-1 font-bold uppercase tracking-wider">Precio de Venta</span>
+                        <span className="text-3xl font-black text-gray-900">
+                          ${item.precio_venta_sugerido}
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600 group-hover:underline">
+                        Ver detalle →
                       </span>
                     </div>
-                    <button 
-                      className="w-full bg-blue-600 hover:bg-gray-900 text-white border-2 border-transparent hover:border-gray-900 py-3 px-4 font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition-all"
-                      aria-label={`Comprar ${item.piezas?.descripcion_corta}`}
+                    <a
+                      href={buildWhatsAppUrl(item)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full bg-blue-600 hover:bg-gray-900 text-white border-2 border-transparent hover:border-gray-900 py-3 px-4 font-black uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-2 transition-all"
+                      aria-label={`Contactar con el vendedor por ${item.piezas?.descripcion_corta}`}
                     >
-                      <ShoppingCart size={18} /> Lo quiero
-                    </button>
+                      <MessageCircle size={18} className="shrink-0" /> Contactar con el vendedor
+                    </a>
                   </div>
                 </div>
               </div>
@@ -402,6 +676,13 @@ function App() {
           </div>
         )}
       </main>
+
+      {selectedItem && (
+        <PiezaDetalleModal
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+        />
+      )}
     </div>
   );
 }
