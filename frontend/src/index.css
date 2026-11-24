@@ -7,3 +7,146 @@
 body {
   background-color: #f3f4f6; /* bg-gray-100 */
 }
+
+/*
+From Uiverse.io by vinodjangid07 - https://uiverse.io/vinodjangid07/tender-fireant-6
+MIT License, Copyright (c) vinodjangid07 (Vinod Jangid)
+*/
+.gomher-card {
+  width: 100%;
+  height: 325px;
+  background: #f5f5f5;
+  padding: 15px;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  position: relative;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+}
+
+.gomher-card-wrapper {
+  height: fit-content;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+}
+
+.gomher-card-image {
+  width: 100%;
+  height: 225px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #ffffff;
+  transition: height 0.25s ease;
+}
+
+.gomher-card-content {
+  width: 100%;
+  height: fit-content;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.gomher-card-title {
+  font-size: 0.8em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #4d4d4d;
+  line-height: 1.3;
+}
+
+.gomher-card-price {
+  font-size: 1.15em;
+  font-weight: 800;
+  color: #111827;
+  white-space: nowrap;
+}
+
+.gomher-card-btn {
+  margin-top: 16px;
+  width: 100%;
+  height: 40px;
+  background-color: #111827;
+  border: none;
+  border-radius: 40px;
+  color: #ffffff;
+  transition: opacity 0.25s ease, transform 0.25s ease, margin-top 0.25s ease, background-color 0.2s ease;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+.gomher-card:hover {
+  background-color: #ffffff;
+  border-color: #111827;
+  box-shadow: 0 10px 25px rgba(17, 24, 39, 0.08);
+}
+
+.gomher-card:hover .gomher-card-image {
+  height: 155px;
+}
+
+.gomher-card:hover .gomher-card-btn {
+  margin-top: 0;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.gomher-card-btn:hover {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+.gomher-card-tag {
+  position: absolute;
+  background-color: #2563eb;
+  color: #ffffff;
+  left: 12px;
+  top: 12px;
+  padding: 5px 12px;
+  border-radius: 15px;
+  font-size: 0.7em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  z-index: 10;
+}
+
+/* En dispositivos táctiles (sin hover) mantener el botón siempre visible */
+@media (hover: none) {
+  .gomher-card {
+    height: auto;
+    background-color: #ffffff;
+  }
+
+  .gomher-card-image {
+    height: 175px;
+  }
+
+  .gomher-card-btn {
+    margin-top: 0;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+}

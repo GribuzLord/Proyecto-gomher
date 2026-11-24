@@ -30,7 +30,7 @@ function PiezaDetalleModal({ item, onClose }) {
     setIsVisible(false);
     setTimeout(() => {
       onClose();
-    }, 200);
+    }, 300);
   }, [onClose]);
 
   useEffect(() => {
@@ -68,7 +68,7 @@ function PiezaDetalleModal({ item, onClose }) {
 
   return (
     <div
-      className={`fixed inset-0 z-50 md:p-6 flex items-center justify-center transition-colors duration-200 ${
+      className={`fixed inset-0 z-50 md:p-6 flex items-center justify-center transition-colors duration-300 ${
         isVisible ? 'bg-gray-900/75 md:backdrop-blur-sm' : 'bg-gray-900/0'
       }`}
       onClick={handleClose}
@@ -77,10 +77,10 @@ function PiezaDetalleModal({ item, onClose }) {
       aria-labelledby="detalle-pieza-titulo"
     >
       <div
-        className={`w-full h-full md:h-auto md:max-h-[90vh] md:max-w-5xl bg-white md:border-2 md:border-gray-900 md:shadow-[8px_8px_0px_rgba(17,24,39,1)] flex flex-col overflow-hidden transition-all duration-200 ease-out ${
+        className={`w-full h-full md:h-auto md:max-h-[90vh] md:max-w-5xl bg-white md:border-2 md:border-gray-900 md:shadow-[8px_8px_0px_rgba(17,24,39,1)] flex flex-col overflow-hidden transition-all duration-300 ease-out ${
           isVisible
-            ? 'opacity-100 translate-y-0 md:scale-100'
-            : 'opacity-0 translate-y-6 md:translate-y-0 md:scale-95'
+            ? 'translate-x-0 md:opacity-100 md:scale-100'
+            : 'translate-x-full md:translate-x-0 md:opacity-0 md:scale-95'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -608,69 +608,54 @@ function App() {
               <div
                 key={item.id}
                 onClick={() => setSelectedItem(item)}
-                className="bg-white border-2 border-gray-200 hover:border-gray-900 transition-colors duration-200 flex flex-col group rounded-none cursor-pointer"
+                className="gomher-card"
               >
-                
-                {/* Imagen */}
-                <div className="h-56 bg-gray-50 relative overflow-hidden border-b-2 border-gray-100 group-hover:border-gray-900 transition-colors">
-                  {item.foto_url ? (
-                    <img src={item.foto_url} alt={item.piezas?.descripcion_corta} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-300">
-                      <Car size={48} className="mb-2 opacity-20" />
-                      <span className="text-sm font-bold uppercase tracking-widest text-gray-400">Sin foto</span>
-                    </div>
-                  )}
-                  {/* Etiqueta de Disponible */}
-                  <div className="absolute top-3 right-3 bg-white text-gray-900 text-[10px] uppercase font-black px-2 py-1 border-2 border-gray-900">
-                    DISPONIBLE
-                  </div>
-                </div>
-
-                {/* Detalles de la pieza */}
-                <div className="p-5 flex-1 flex flex-col">
-                  <div className="flex justify-between items-center mb-2">
-                    <div className="text-xs text-blue-600 font-black uppercase tracking-widest">
-                      {item.piezas?.categoria}
-                    </div>
-                    {/* Condición discreta */}
-                    <div className="text-[10px] text-gray-500 bg-gray-100 px-2 py-1 font-bold uppercase tracking-wider">
-                      {item.condicion}
-                    </div>
-                  </div>
-                  
-                  <h3 className="font-black text-lg leading-tight mb-2 text-gray-900 uppercase group-hover:text-blue-600 transition-colors">
-                    {item.piezas?.descripcion_corta}
-                  </h3>
-                  
-                  <p className="text-sm text-gray-600 mb-6 line-clamp-2 flex-1 font-medium">
-                    {item.detalle_observacion}
-                  </p>
-
-                  <div className="mt-auto">
-                    <div className="mb-4 flex items-end justify-between gap-2">
-                      <div>
-                        <span className="text-xs text-gray-500 block mb-1 font-bold uppercase tracking-wider">Precio de Venta</span>
-                        <span className="text-3xl font-black text-gray-900">
-                          ${item.precio_venta_sugerido}
-                        </span>
+                <div className="gomher-card-wrapper">
+                  {/* Imagen */}
+                  <div className="gomher-card-image">
+                    {item.foto_url ? (
+                      <img
+                        src={item.foto_url}
+                        alt={item.piezas?.descripcion_corta}
+                        loading="lazy"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-gray-300">
+                        <Car size={48} className="mb-1 opacity-25" />
+                        <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Sin foto</span>
                       </div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600 group-hover:underline">
-                        Ver detalle →
-                      </span>
-                    </div>
-                    <a
-                      href={buildWhatsAppUrl(item)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-full bg-blue-600 hover:bg-gray-900 text-white border-2 border-transparent hover:border-gray-900 py-3 px-4 font-black uppercase tracking-wider text-xs sm:text-sm flex items-center justify-center gap-2 transition-all"
-                      aria-label={`Contactar con el vendedor por ${item.piezas?.descripcion_corta}`}
-                    >
-                      <MessageCircle size={18} className="shrink-0" /> Contactar con el vendedor
-                    </a>
+                    )}
                   </div>
+
+                  {/* Contenido: título, categoría/condición y precio */}
+                  <div className="gomher-card-content">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 mb-0.5 truncate">
+                        {item.piezas?.categoria} • {item.condicion}
+                      </p>
+                      <p className="gomher-card-title line-clamp-2">
+                        {item.piezas?.descripcion_corta}
+                      </p>
+                    </div>
+                    <p className="gomher-card-price">${item.precio_venta_sugerido}</p>
+                  </div>
+
+                  {/* Botón WhatsApp */}
+                  <a
+                    href={buildWhatsAppUrl(item)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="gomher-card-btn"
+                    aria-label={`Contactar con el vendedor por ${item.piezas?.descripcion_corta}`}
+                  >
+                    <MessageCircle size={16} className="shrink-0" /> Contactar con el vendedor
+                  </a>
                 </div>
+
+                {/* Etiqueta flotante */}
+                <p className="gomher-card-tag">DISPONIBLE</p>
               </div>
             ))}
           </div>
