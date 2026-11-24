@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Search, Car, FilterX, Filter, ChevronDown, Check,
+  Search, Car, FilterX, Filter, ChevronDown, ChevronLeft, ChevronRight, Check,
   AlertCircle, RefreshCw, X, ArrowLeft, MessageCircle, ZoomIn, ZoomOut
 } from 'lucide-react';
 import logoGomher from './assets/logo-gomher.svg';
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const WHATSAPP_NUMBER = (import.meta.env.VITE_WHATSAPP_NUMBER || '').replace(/\D/g, '');
+const ITEMS_PER_PAGE = 24;
 
 function buildWhatsAppUrl(item) {
   const desc = item.piezas?.descripcion_corta || 'esta pieza';
@@ -328,55 +329,109 @@ function CustomSelect({ id, label, options, value, onChange, placeholder, disabl
 function App() {
   const [piezas, setPiezas] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
+  const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // Estados de paginación
+  const [page, setPage] = useState(1);
+  const [totalPiezas, setTotalPiezas] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Estados para los filtros
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedMarca, setSelectedMarca] = useState('');
   const [selectedSubmarca, setSelectedSubmarca] = useState('');
   const [selectedAnio, setSelectedAnio] = useState('');
   const [selectedCategoria, setSelectedCategoria] = useState('');
 
-  const fetchData = () => {
-    setLoading(true);
-    setError(null);
+  // Debounce del buscador de texto (350ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim());
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Cargar catálogos base para filtros (vehículos y categorías)
+  useEffect(() => {
+    let cancelled = false;
 
     const safeFetch = async (url) => {
       const res = await fetch(url);
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || `Error HTTP ${res.status}`);
-      }
+      if (!res.ok) throw new Error(data.error || `Error HTTP ${res.status}`);
       return data;
     };
 
     Promise.all([
-      safeFetch(`${API_URL}/api/catalogo/piezas`),
-      safeFetch(`${API_URL}/api/catalogo/vehiculos`)
+      safeFetch(`${API_URL}/api/catalogo/vehiculos`),
+      safeFetch(`${API_URL}/api/catalogo/categorias`)
     ])
-    .then(([piezasData, vehiculosData]) => {
-      setPiezas(Array.isArray(piezasData) ? piezasData : []);
-      setVehiculos(Array.isArray(vehiculosData) ? vehiculosData : []);
-      setLoading(false);
-    })
-    .catch(err => {
-      console.error("Error cargando datos:", err);
-      setError(err.message || 'Error de conexión con el backend o la base de datos');
-      setPiezas([]);
-      setVehiculos([]);
-      setLoading(false);
-    });
-  };
+      .then(([vehiculosData, categoriasData]) => {
+        if (cancelled) return;
+        setVehiculos(Array.isArray(vehiculosData) ? vehiculosData : []);
+        setCategorias(Array.isArray(categoriasData) ? categoriasData : []);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('Error cargando filtros:', err);
+      });
 
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
+
+  // Cargar piezas paginadas y filtradas desde el servidor
   useEffect(() => {
-    fetchData();
-  }, []);
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(ITEMS_PER_PAGE),
+    });
+    if (debouncedSearch) params.set('search', debouncedSearch);
+    if (selectedMarca) params.set('marca', selectedMarca);
+    if (selectedSubmarca) params.set('submarca', selectedSubmarca);
+    if (selectedAnio) params.set('anio', selectedAnio);
+    if (selectedCategoria) params.set('categoria', selectedCategoria);
+
+    fetch(`${API_URL}/api/catalogo/piezas?${params.toString()}`)
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Error HTTP ${res.status}`);
+        return data;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setPiezas(Array.isArray(data.items) ? data.items : []);
+        setTotalPiezas(typeof data.total === 'number' ? data.total : 0);
+        setTotalPages(typeof data.totalPages === 'number' && data.totalPages > 0 ? data.totalPages : 1);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('Error cargando datos:', err);
+        setError(err.message || 'Error de conexión con el backend o la base de datos');
+        setPiezas([]);
+        setTotalPiezas(0);
+        setTotalPages(1);
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [page, debouncedSearch, selectedMarca, selectedSubmarca, selectedAnio, selectedCategoria, reloadKey]);
 
   // --- LÓGICA DE FILTROS EN CASCADA ---
-  
-  // 1. Extraer listas únicas para llenar los 'selects'
   const marcas = Array.isArray(vehiculos) ? [...new Set(vehiculos.map(v => v.marca))] : [];
   const submarcas = Array.isArray(vehiculos) ? [...new Set(vehiculos.filter(v => v.marca === selectedMarca).map(v => v.submarca))] : [];
   const anios = Array.isArray(vehiculos) && selectedMarca && selectedSubmarca
@@ -394,44 +449,11 @@ function App() {
         .sort((a, b) => b - a)
         .map(String)
     : [];
-  const categorias = Array.isArray(piezas) ? [...new Set(piezas.map(p => p.piezas?.categoria).filter(Boolean))] : [];
 
-  // 2. Filtrar las piezas a mostrar basado en los estados seleccionados
-  const filteredPiezas = Array.isArray(piezas) ? piezas.filter(item => {
-    // Filtro por Búsqueda de texto
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      const matchDesc = item.piezas?.descripcion_corta?.toLowerCase().includes(term);
-      const matchCat = item.piezas?.categoria?.toLowerCase().includes(term);
-      const matchSKU = item.sku_interno?.toLowerCase().includes(term);
-      if (!matchDesc && !matchCat && !matchSKU) return false;
-    }
-
-    // Filtro por Categoría
-    if (selectedCategoria && item.piezas?.categoria !== selectedCategoria) {
-      return false;
-    }
-
-    // Filtro por Marca, Submarca y Año (revisando compatibilidades)
-    if (selectedMarca || selectedSubmarca || selectedAnio) {
-      const compatibilidades = item.piezas?.compatibilidades || [];
-      const esCompatible = compatibilidades.some(comp => {
-        const v = comp.vehiculos;
-        if (!v) return false;
-        
-        const coincideMarca = selectedMarca ? v.marca === selectedMarca : true;
-        const coincideSubmarca = selectedSubmarca ? v.submarca === selectedSubmarca : true;
-        const anioNum = Number(selectedAnio);
-        const coincideAnio = selectedAnio ? (anioNum >= v.anio_inicio && anioNum <= v.anio_fin) : true;
-        
-        return coincideMarca && coincideSubmarca && coincideAnio;
-      });
-      
-      if (!esCompatible) return false;
-    }
-
-    return true;
-  }) : [];
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
@@ -494,7 +516,7 @@ function App() {
           </div>
 
           <div className="relative z-10 bg-gray-50 px-6 py-4 rounded-2xl border border-gray-200 flex flex-col items-center justify-center min-w-[120px]">
-            <span className="text-4xl font-black text-blue-600 leading-none mb-1">{piezas.length}</span>
+            <span className="text-4xl font-black text-blue-600 leading-none mb-1">{totalPiezas}</span>
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">En Stock</span>
           </div>
         </div>
@@ -516,6 +538,7 @@ function App() {
                   setSelectedAnio('');
                   setSelectedCategoria('');
                   setSearchTerm('');
+                  setPage(1);
                 }}
                 className="text-gray-500 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold transition-all focus:ring-2 focus:ring-offset-2 focus:ring-gray-200 outline-none"
                 aria-label="Limpiar todos los filtros"
@@ -537,6 +560,7 @@ function App() {
                 setSelectedMarca(val);
                 setSelectedSubmarca('');
                 setSelectedAnio('');
+                setPage(1);
               }}
               placeholder="Todas las Marcas"
             />
@@ -550,6 +574,7 @@ function App() {
               onChange={(val) => {
                 setSelectedSubmarca(val);
                 setSelectedAnio('');
+                setPage(1);
               }}
               placeholder={selectedMarca ? 'Todos los Modelos' : 'Selecciona marca primero'}
               disabled={!selectedMarca}
@@ -561,7 +586,10 @@ function App() {
               label="3. Año"
               options={anios}
               value={selectedAnio}
-              onChange={setSelectedAnio}
+              onChange={(val) => {
+                setSelectedAnio(val);
+                setPage(1);
+              }}
               placeholder={selectedSubmarca ? 'Todos los Años' : 'Selecciona modelo primero'}
               disabled={!selectedSubmarca}
             />
@@ -572,14 +600,17 @@ function App() {
               label="4. Tipo de Pieza"
               options={categorias}
               value={selectedCategoria}
-              onChange={setSelectedCategoria}
+              onChange={(val) => {
+                setSelectedCategoria(val);
+                setPage(1);
+              }}
               placeholder="Cualquier Pieza"
             />
             
           </div>
         </section>
 
-        {/* LISTADO DE PIEZAS (Usamos filteredPiezas en lugar de piezas) */}
+        {/* LISTADO DE PIEZAS */}
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
@@ -590,21 +621,22 @@ function App() {
             <h3 className="text-xl font-bold text-red-900 mb-1">No se pudieron cargar los datos</h3>
             <p className="text-sm text-red-700 max-w-lg mb-4">{error}</p>
             <button
-              onClick={fetchData}
+              onClick={() => setReloadKey((k) => k + 1)}
               className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 text-sm uppercase tracking-wider transition-colors"
             >
               <RefreshCw size={16} /> Reintentar
             </button>
           </div>
-        ) : filteredPiezas.length === 0 ? (
+        ) : piezas.length === 0 ? (
           <div className="bg-white p-12 rounded-3xl border border-gray-100 text-center flex flex-col items-center">
             <Search size={48} className="text-gray-300 mb-4" />
             <h3 className="text-xl font-bold text-gray-800 mb-2">No se encontraron piezas</h3>
             <p className="text-gray-500">Intenta buscar con otros términos o limpia los filtros.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredPiezas.map((item) => (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {piezas.map((item) => (
               <div
                 key={item.id}
                 onClick={() => setSelectedItem(item)}
@@ -658,7 +690,35 @@ function App() {
                 <p className="gomher-card-tag">DISPONIBLE</p>
               </div>
             ))}
-          </div>
+            </div>
+
+            {totalPages > 1 && (
+              <nav aria-label="Paginación del catálogo" className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white border-2 border-gray-900 p-4">
+                <span className="text-xs font-bold uppercase tracking-wider text-gray-600">
+                  Página {page} de {totalPages} ({totalPiezas} piezas)
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={page <= 1}
+                    onClick={() => handlePageChange(page - 1)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 border-2 border-gray-900 text-xs font-black uppercase tracking-wider bg-white text-gray-900 hover:bg-gray-900 hover:text-white disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                  >
+                    <ChevronLeft size={16} /> Anterior
+                  </button>
+                  <button
+                    type="button"
+                    disabled={page >= totalPages}
+                    onClick={() => handlePageChange(page + 1)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 border-2 border-gray-900 text-xs font-black uppercase tracking-wider bg-blue-600 text-white hover:bg-gray-900 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                  >
+                    Siguiente <ChevronRight size={16} />
+                  </button>
+                </div>
+              </nav>
+            )}
+          </>
         )}
       </main>
 

@@ -20,16 +20,129 @@ app.use(express.json());
 // --- ENDPOINTS PÚBLICOS (Catálogo) ---
 app.get('/api/catalogo/piezas', async (req, res) => {
     try {
-        const { data, error } = await supabase
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 24));
+        const search = (req.query.search || '').trim();
+        const marca = (req.query.marca || '').trim();
+        const submarca = (req.query.submarca || '').trim();
+        const anio = parseInt(req.query.anio, 10) || null;
+        const categoria = (req.query.categoria || '').trim();
+
+        let compatiblePiezaIds = null;
+
+        // 1. Filtrado por vehículo (marca, submarca, año)
+        if (marca || submarca || anio) {
+            let vehiculosQuery = supabase.from('vehiculos').select('id');
+            if (marca) vehiculosQuery = vehiculosQuery.eq('marca', marca);
+            if (submarca) vehiculosQuery = vehiculosQuery.eq('submarca', submarca);
+            if (anio) {
+                vehiculosQuery = vehiculosQuery.lte('anio_inicio', anio).gte('anio_fin', anio);
+            }
+
+            const { data: vehiculosMatch, error: vError } = await vehiculosQuery;
+            if (vError) throw vError;
+
+            const vehiculoIds = (vehiculosMatch || []).map((v) => v.id);
+            if (vehiculoIds.length === 0) {
+                return res.json({ items: [], total: 0, page, limit, totalPages: 0 });
+            }
+
+            const { data: compMatch, error: cError } = await supabase
+                .from('compatibilidades')
+                .select('pieza_id')
+                .in('vehiculo_id', vehiculoIds);
+            if (cError) throw cError;
+
+            compatiblePiezaIds = [...new Set((compMatch || []).map((c) => c.pieza_id))];
+            if (compatiblePiezaIds.length === 0) {
+                return res.json({ items: [], total: 0, page, limit, totalPages: 0 });
+            }
+        }
+
+        // 2. Filtrado por búsqueda de texto en catálogo de piezas (descripción o categoría)
+        let searchPiezaIds = [];
+        if (search) {
+            const safeSearch = search.replace(/[%_(),]/g, '');
+            if (safeSearch) {
+                const { data: piezasMatch, error: pError } = await supabase
+                    .from('piezas')
+                    .select('id')
+                    .or(`descripcion_corta.ilike.%${safeSearch}%,categoria.ilike.%${safeSearch}%`);
+                if (pError) throw pError;
+                searchPiezaIds = (piezasMatch || []).map((p) => p.id);
+            }
+        }
+
+        // 3. Consulta paginada de inventario público (sin exponer costos ni precio mínimo de regateo)
+        const piezasJoin = categoria ? 'piezas!inner' : 'piezas';
+        let query = supabase
             .from('inventario_items')
             .select(`
-                *,
-                piezas (*, compatibilidades (vehiculos (*)))
-            `)
+                id,
+                pieza_id,
+                sku_interno,
+                condicion,
+                detalle_observacion,
+                precio_venta_sugerido,
+                foto_url,
+                estatus,
+                fecha_ingreso,
+                ${piezasJoin} (*, compatibilidades (id, observacion_compatibilidad, vehiculos (*)))
+            `, { count: 'exact' })
             .eq('estatus', 'Disponible');
 
+        if (categoria) {
+            query = query.eq('piezas.categoria', categoria);
+        }
+
+        if (compatiblePiezaIds !== null) {
+            query = query.in('pieza_id', compatiblePiezaIds);
+        }
+
+        if (search) {
+            const safeSearch = search.replace(/[%_(),]/g, '');
+            if (safeSearch) {
+                if (searchPiezaIds.length > 0) {
+                    query = query.or(`sku_interno.ilike.%${safeSearch}%,pieza_id.in.(${searchPiezaIds.join(',')})`);
+                } else {
+                    query = query.ilike('sku_interno', `%${safeSearch}%`);
+                }
+            }
+        }
+
+        const from = (page - 1) * limit;
+        const to = from + limit - 1;
+
+        const { data, count, error } = await query
+            .order('fecha_ingreso', { ascending: false })
+            .range(from, to);
+
         if (error) throw error;
-        res.json(data);
+
+        const total = count || 0;
+        res.json({
+            items: data || [],
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint ligero de categorías disponibles para el filtro
+app.get('/api/catalogo/categorias', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('piezas')
+            .select('categoria')
+            .order('categoria', { ascending: true });
+
+        if (error) throw error;
+        const categorias = [...new Set((data || []).map((p) => p.categoria).filter(Boolean))];
+        res.json(categorias);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
